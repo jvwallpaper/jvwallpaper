@@ -34,6 +34,20 @@
 @media(max-width:620px){.wrap{width:min(100% - 22px,1180px)}.topbar{font-size:9px}.navin{height:68px}.hero{padding-top:32px}.hero-img{height:390px;border-radius:2px 34px 2px 34px}.section{padding:66px 0}.gallery{grid-template-columns:1fr;grid-template-rows:repeat(5,230px)}.gallery .shot:first-child{grid-row:auto}.service-grid,.process,.opt-grid,.fields,.date-row,.slots,.metrics,.req,.details{grid-template-columns:1fr}.date-row{grid-template-columns:1fr 1fr}.slots{grid-template-columns:1fr 1fr}.previews{grid-template-columns:repeat(3,1fr)}.designer-list{grid-template-columns:1fr}.admin-top{align-items:flex-start;flex-direction:column}.calendar{grid-template-columns:1fr 1fr}.cell{min-height:80px}}
 
 .owner-login{max-width:480px;margin:70px auto;background:#fff;border:1px solid var(--line);padding:30px}.owner-login h2{font-family:var(--serif);font-size:34px;font-weight:500;margin:0 0 8px}.owner-login p{color:var(--muted);margin:0 0 20px}.owner-login .field{margin-bottom:12px}.owner-login .btn{width:100%;justify-content:center}.login-error{display:none;margin-top:12px;padding:10px 12px;background:#f4e3e0;color:#94433c;font-size:13px}.photo-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.photo-strip img{width:100%;aspect-ratio:1;object-fit:cover}.admin-loading{padding:25px 0;color:var(--muted)}
+
+.black .btn.light,
+.dark-section .btn.light,
+.partner .btn.light{
+  background:#fff;
+  color:#171713;
+  border-color:#fff;
+}
+.black .btn.light:hover,
+.dark-section .btn.light:hover,
+.partner .btn.light:hover{
+  color:#171713;
+}
+
 </style>
 </head>
 <body>
@@ -259,7 +273,60 @@ $('availabilityForm').onsubmit=async e=>{
   setTimeout(()=>$('availabilitySaved').style.display='none',2500);
 };
 
-\nasync function ownerAccessToken(){\n  const {data:{session}}=await sb.auth.getSession();\n  if(!session?.access_token)throw new Error('Please sign in again.');\n  return session.access_token;\n}\nasync function refreshGoogleCalendarStatus(){\n  const badge=$('googleCalendarStatus'),msg=$('googleCalendarMessage');\n  try{\n    const token=await ownerAccessToken();\n    const r=await fetch('/.netlify/functions/google-status',{headers:{Authorization:`Bearer ${token}`}});\n    const data=await r.json();\n    if(!r.ok)throw new Error(data.error||'Could not check Google Calendar');\n    if(data.connected){\n      badge.textContent='Connected';badge.className='status confirmed';\n      $('connectGoogleBtn').textContent='Reconnect Google Calendar';\n      $('disconnectGoogleBtn').style.display='inline-flex';\n      msg.textContent='Google Calendar is connected. Approving a measurement will create the calendar event automatically.';\n    }else{\n      badge.textContent='Not Connected';badge.className='status pending';\n      $('connectGoogleBtn').textContent='Connect Google Calendar';\n      $('disconnectGoogleBtn').style.display='none';\n      msg.textContent='Connect once to enable automatic calendar events and busy-time checking.';\n    }\n  }catch(e){\n    badge.textContent='Setup Needed';badge.className='status pending';msg.textContent=e.message;\n  }\n}\n$('connectGoogleBtn').onclick=async()=>{\n  try{\n    const btn=$('connectGoogleBtn');btn.disabled=true;btn.textContent='Opening Google…';\n    const token=await ownerAccessToken();\n    const r=await fetch('/.netlify/functions/google-connect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});\n    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not start Google connection');\n    location.href=data.url;\n  }catch(e){alert(e.message);$('connectGoogleBtn').disabled=false;await refreshGoogleCalendarStatus()}\n};\n$('disconnectGoogleBtn').onclick=async()=>{\n  if(!confirm('Disconnect Google Calendar from JV Wallpaper?'))return;\n  try{\n    const token=await ownerAccessToken();\n    const r=await fetch('/.netlify/functions/google-disconnect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});\n    const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not disconnect');\n    await refreshGoogleCalendarStatus();\n  }catch(e){alert(e.message)}\n};\nconst googleParams=new URLSearchParams(location.search);\nif(googleParams.get('google')==='connected'){\n  setTimeout(()=>{alert('Google Calendar connected successfully.');history.replaceState(null,'',location.pathname+'#admin')},300);\n}else if(googleParams.get('google')==='error'){\n  setTimeout(()=>{alert('Google Calendar connection failed: '+(googleParams.get('message')||'Unknown error'));history.replaceState(null,'',location.pathname+'#admin')},300);\n}\n\n$('refreshAdminBtn').onclick=()=>renderAdmin();
+
+async function ownerAccessToken(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.access_token)throw new Error('Please sign in again.');
+  return session.access_token;
+}
+async function refreshGoogleCalendarStatus(){
+  const badge=$('googleCalendarStatus'),msg=$('googleCalendarMessage');
+  try{
+    const token=await ownerAccessToken();
+    const r=await fetch('/.netlify/functions/google-status',{headers:{Authorization:`Bearer ${token}`}});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not check Google Calendar');
+    if(data.connected){
+      badge.textContent='Connected';badge.className='status confirmed';
+      $('connectGoogleBtn').textContent='Reconnect Google Calendar';
+      $('disconnectGoogleBtn').style.display='inline-flex';
+      msg.textContent='Google Calendar is connected. Approving a measurement will create the calendar event automatically.';
+    }else{
+      badge.textContent='Not Connected';badge.className='status pending';
+      $('connectGoogleBtn').textContent='Connect Google Calendar';
+      $('disconnectGoogleBtn').style.display='none';
+      msg.textContent='Connect once to enable automatic calendar events and busy-time checking.';
+    }
+  }catch(e){
+    badge.textContent='Setup Needed';badge.className='status pending';msg.textContent=e.message;
+  }
+}
+$('connectGoogleBtn').onclick=async()=>{
+  try{
+    const btn=$('connectGoogleBtn');btn.disabled=true;btn.textContent='Opening Google…';
+    const token=await ownerAccessToken();
+    const r=await fetch('/.netlify/functions/google-connect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});
+    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not start Google connection');
+    location.href=data.url;
+  }catch(e){alert(e.message);$('connectGoogleBtn').disabled=false;await refreshGoogleCalendarStatus()}
+};
+$('disconnectGoogleBtn').onclick=async()=>{
+  if(!confirm('Disconnect Google Calendar from JV Wallpaper?'))return;
+  try{
+    const token=await ownerAccessToken();
+    const r=await fetch('/.netlify/functions/google-disconnect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});
+    const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not disconnect');
+    await refreshGoogleCalendarStatus();
+  }catch(e){alert(e.message)}
+};
+const googleParams=new URLSearchParams(location.search);
+if(googleParams.get('google')==='connected'){
+  setTimeout(()=>{alert('Google Calendar connected successfully.');history.replaceState(null,'',location.pathname+'#admin')},300);
+}else if(googleParams.get('google')==='error'){
+  setTimeout(()=>{alert('Google Calendar connection failed: '+(googleParams.get('message')||'Unknown error'));history.replaceState(null,'',location.pathname+'#admin')},300);
+}
+
+$('refreshAdminBtn').onclick=()=>renderAdmin();
 sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){recoveryMode=true;setTimeout(showRecoveryForm,0);return}if(location.hash==='#admin')setTimeout(refreshOwnerState,0)});
 
 let adminRows=[];
