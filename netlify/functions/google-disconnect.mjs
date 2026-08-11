@@ -1,0 +1,2 @@
+import { json, preflight, verifyOwner, clearGoogleConnection, getGoogleConnection } from './_shared.mjs';
+export default async (req)=>{const pf=preflight(req);if(pf)return pf;try{await verifyOwner(req);const c=await getGoogleConnection();if(c?.refresh_token){await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(c.refresh_token)}`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}await clearGoogleConnection();return json({ok:true});}catch(e){return json({error:e.message},400)}};
