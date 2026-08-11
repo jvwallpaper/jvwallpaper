@@ -1,4 +1,5 @@
 import { json, preflight, verifyOwner, refreshGoogleAccess, supabaseSelectAppointment, supabasePatchAppointment, zonedDate, MEASUREMENT_MINUTES, TZ } from './_shared.mjs';
+import { sendMail, clientConfirmedEmail } from './_email.mjs';
 export default async (req)=>{
   const pf=preflight(req);if(pf)return pf;
   try{
@@ -30,6 +31,8 @@ export default async (req)=>{
     const patch={status:'confirmed',google_event_id:g.id};
     if(appt.proposed_date&&appt.proposed_time){patch.requested_date=date;patch.requested_time=time;patch.proposed_date=null;patch.proposed_time=null;}
     await supabasePatchAppointment(appt.id,patch,auth);
+    const finalAppt={...appt,...patch,requested_date:patch.requested_date||appt.requested_date,requested_time:patch.requested_time||appt.requested_time};
+    try{await sendMail(clientConfirmedEmail(finalAppt));}catch(mailErr){console.error('confirmation email error',mailErr);}
     return json({ok:true,event_id:g.id,html_link:g.htmlLink||null});
   }catch(e){return json({error:e.message},400)}
 };

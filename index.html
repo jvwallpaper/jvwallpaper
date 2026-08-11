@@ -217,7 +217,12 @@ function val(id){return $(id).value.trim()}
 function renderReview(){$('review').innerHTML=`<div class="details"><div class="detail"><small>Client</small>${esc(val('first'))} ${esc(val('last'))}</div><div class="detail"><small>Requested appointment</small>${esc(selectedDate)} · ${esc(selectedTime)}</div><div class="detail"><small>Project</small>${esc(service)} · ${esc($('room').value)}</div><div class="detail"><small>Address</small>${esc(val('address'))}, ${esc(val('city'))}, ${esc($('state').value)} ${esc(val('zip'))}</div></div><div class="notice" style="margin-top:12px"><b>Status after submission:</b> Pending Approval</div>`}
 function cleanFileName(name){return name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-').replace(/-+/g,'-')}
 async function uploadAppointmentPhotos(){const paths=[];for(const file of selectedFiles){const path=`${new Date().toISOString().slice(0,10)}/${crypto.randomUUID()}-${cleanFileName(file.name)}`;const {error}=await sb.storage.from('appointment-photos').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type||undefined});if(error)throw error;paths.push(path)}return paths}
-$('bookingForm').onsubmit=async e=>{e.preventDefault();if(!$('agree').checked)return alert('Please confirm that you understand the appointment requires approval.');const btn=e.submitter||$('bookingForm').querySelector('button[type="submit"]');const old=btn.textContent;btn.disabled=true;btn.textContent='Sending Request…';try{const photoPaths=await uploadAppointmentPhotos();const payload={first_name:val('first'),last_name:val('last'),email:val('email'),phone:val('phone'),address:val('address'),city:val('city'),state:$('state').value,zip:val('zip'),service_type:service,room_type:$('room').value,number_of_rooms:parseInt(val('rooms')||'1',10)||1,existing_wallpaper:$('existing').value,wallpaper_status:$('wallpaperStatus').value,manufacturer:val('manufacturer')||null,quantity:val('quantity')||null,project_notes:val('notes')||null,requested_date:selectedDate,requested_time:selectedTime,status:'pending',photo_urls:photoPaths,admin_notes:null,proposed_date:null,proposed_time:null};const {error}=await sb.from('appointment_requests').insert(payload);if(error)throw error;$('bookingForm').innerHTML=`<div class="success"><div class="check">✓</div><h2 style="font-family:var(--serif);font-size:38px;font-weight:500">Request received.</h2><p>Your requested measurement for <b>${esc(selectedDate)} at ${esc(selectedTime)}</b> is <b>Pending Approval</b>.</p><p style="color:var(--muted)">JV Wallpaper will review your project and confirm the appointment or propose another time.</p><a class="btn dark" href="#home">Back to Website</a></div>`}catch(err){console.error(err);alert('We could not submit the request. Please try again, or call JV Wallpaper at 703-901-1064.');btn.disabled=false;btn.textContent=old}};
+$('bookingForm').onsubmit=async e=>{e.preventDefault();if(!$('agree').checked)return alert('Please confirm that you understand the appointment requires approval.');const btn=e.submitter||$('bookingForm').querySelector('button[type="submit"]');const old=btn.textContent;btn.disabled=true;btn.textContent='Sending Request…';try{const photoPaths=await uploadAppointmentPhotos();const payload={first_name:val('first'),last_name:val('last'),email:val('email'),phone:val('phone'),address:val('address'),city:val('city'),state:$('state').value,zip:val('zip'),service_type:service,room_type:$('room').value,number_of_rooms:parseInt(val('rooms')||'1',10)||1,existing_wallpaper:$('existing').value,wallpaper_status:$('wallpaperStatus').value,manufacturer:val('manufacturer')||null,quantity:val('quantity')||null,project_notes:val('notes')||null,requested_date:selectedDate,requested_time:selectedTime,status:'pending',photo_urls:photoPaths,admin_notes:null,proposed_date:null,proposed_time:null};const {error}=await sb.from('appointment_requests').insert(payload);if(error)throw error;
+try{
+  const mailRes=await fetch('/.netlify/functions/email-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!mailRes.ok)console.warn('Appointment saved but notification email failed',await mailRes.text());
+}catch(mailErr){console.warn('Appointment saved but notification email failed',mailErr);}
+$('bookingForm').innerHTML=`<div class="success"><div class="check">✓</div><h2 style="font-family:var(--serif);font-size:38px;font-weight:500">Request received.</h2><p>Your requested measurement for <b>${esc(selectedDate)} at ${esc(selectedTime)}</b> is <b>Pending Approval</b>.</p><p style="color:var(--muted)">JV Wallpaper will review your project and confirm the appointment or propose another time.</p><a class="btn dark" href="#home">Back to Website</a></div>`}catch(err){console.error(err);alert('We could not submit the request. Please try again, or call JV Wallpaper at 703-901-1064.');btn.disabled=false;btn.textContent=old}};
 
 let recoveryMode=false;
 function isRecoveryUrl(){const q=new URLSearchParams(location.search);return q.get('type')==='recovery'||q.has('code')||location.hash.includes('type=recovery')||location.hash.includes('access_token=')}
@@ -254,60 +259,7 @@ $('availabilityForm').onsubmit=async e=>{
   setTimeout(()=>$('availabilitySaved').style.display='none',2500);
 };
 
-
-async function ownerAccessToken(){
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session?.access_token)throw new Error('Please sign in again.');
-  return session.access_token;
-}
-async function refreshGoogleCalendarStatus(){
-  const badge=$('googleCalendarStatus'),msg=$('googleCalendarMessage');
-  try{
-    const token=await ownerAccessToken();
-    const r=await fetch('/.netlify/functions/google-status',{headers:{Authorization:`Bearer ${token}`}});
-    const data=await r.json();
-    if(!r.ok)throw new Error(data.error||'Could not check Google Calendar');
-    if(data.connected){
-      badge.textContent='Connected';badge.className='status confirmed';
-      $('connectGoogleBtn').textContent='Reconnect Google Calendar';
-      $('disconnectGoogleBtn').style.display='inline-flex';
-      msg.textContent='Google Calendar is connected. Approving a measurement will create the calendar event automatically.';
-    }else{
-      badge.textContent='Not Connected';badge.className='status pending';
-      $('connectGoogleBtn').textContent='Connect Google Calendar';
-      $('disconnectGoogleBtn').style.display='none';
-      msg.textContent='Connect once to enable automatic calendar events and busy-time checking.';
-    }
-  }catch(e){
-    badge.textContent='Setup Needed';badge.className='status pending';msg.textContent=e.message;
-  }
-}
-$('connectGoogleBtn').onclick=async()=>{
-  try{
-    const btn=$('connectGoogleBtn');btn.disabled=true;btn.textContent='Opening Google…';
-    const token=await ownerAccessToken();
-    const r=await fetch('/.netlify/functions/google-connect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});
-    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not start Google connection');
-    location.href=data.url;
-  }catch(e){alert(e.message);$('connectGoogleBtn').disabled=false;await refreshGoogleCalendarStatus()}
-};
-$('disconnectGoogleBtn').onclick=async()=>{
-  if(!confirm('Disconnect Google Calendar from JV Wallpaper?'))return;
-  try{
-    const token=await ownerAccessToken();
-    const r=await fetch('/.netlify/functions/google-disconnect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});
-    const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not disconnect');
-    await refreshGoogleCalendarStatus();
-  }catch(e){alert(e.message)}
-};
-const googleParams=new URLSearchParams(location.search);
-if(googleParams.get('google')==='connected'){
-  setTimeout(()=>{alert('Google Calendar connected successfully.');history.replaceState(null,'',location.pathname+'#admin')},300);
-}else if(googleParams.get('google')==='error'){
-  setTimeout(()=>{alert('Google Calendar connection failed: '+(googleParams.get('message')||'Unknown error'));history.replaceState(null,'',location.pathname+'#admin')},300);
-}
-
-$('refreshAdminBtn').onclick=()=>renderAdmin();
+\nasync function ownerAccessToken(){\n  const {data:{session}}=await sb.auth.getSession();\n  if(!session?.access_token)throw new Error('Please sign in again.');\n  return session.access_token;\n}\nasync function refreshGoogleCalendarStatus(){\n  const badge=$('googleCalendarStatus'),msg=$('googleCalendarMessage');\n  try{\n    const token=await ownerAccessToken();\n    const r=await fetch('/.netlify/functions/google-status',{headers:{Authorization:`Bearer ${token}`}});\n    const data=await r.json();\n    if(!r.ok)throw new Error(data.error||'Could not check Google Calendar');\n    if(data.connected){\n      badge.textContent='Connected';badge.className='status confirmed';\n      $('connectGoogleBtn').textContent='Reconnect Google Calendar';\n      $('disconnectGoogleBtn').style.display='inline-flex';\n      msg.textContent='Google Calendar is connected. Approving a measurement will create the calendar event automatically.';\n    }else{\n      badge.textContent='Not Connected';badge.className='status pending';\n      $('connectGoogleBtn').textContent='Connect Google Calendar';\n      $('disconnectGoogleBtn').style.display='none';\n      msg.textContent='Connect once to enable automatic calendar events and busy-time checking.';\n    }\n  }catch(e){\n    badge.textContent='Setup Needed';badge.className='status pending';msg.textContent=e.message;\n  }\n}\n$('connectGoogleBtn').onclick=async()=>{\n  try{\n    const btn=$('connectGoogleBtn');btn.disabled=true;btn.textContent='Opening Google…';\n    const token=await ownerAccessToken();\n    const r=await fetch('/.netlify/functions/google-connect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});\n    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not start Google connection');\n    location.href=data.url;\n  }catch(e){alert(e.message);$('connectGoogleBtn').disabled=false;await refreshGoogleCalendarStatus()}\n};\n$('disconnectGoogleBtn').onclick=async()=>{\n  if(!confirm('Disconnect Google Calendar from JV Wallpaper?'))return;\n  try{\n    const token=await ownerAccessToken();\n    const r=await fetch('/.netlify/functions/google-disconnect',{method:'POST',headers:{Authorization:`Bearer ${token}`}});\n    const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not disconnect');\n    await refreshGoogleCalendarStatus();\n  }catch(e){alert(e.message)}\n};\nconst googleParams=new URLSearchParams(location.search);\nif(googleParams.get('google')==='connected'){\n  setTimeout(()=>{alert('Google Calendar connected successfully.');history.replaceState(null,'',location.pathname+'#admin')},300);\n}else if(googleParams.get('google')==='error'){\n  setTimeout(()=>{alert('Google Calendar connection failed: '+(googleParams.get('message')||'Unknown error'));history.replaceState(null,'',location.pathname+'#admin')},300);\n}\n\n$('refreshAdminBtn').onclick=()=>renderAdmin();
 sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){recoveryMode=true;setTimeout(showRecoveryForm,0);return}if(location.hash==='#admin')setTimeout(refreshOwnerState,0)});
 
 let adminRows=[];
@@ -322,17 +274,36 @@ async function setStatus(id,status){
       const data=await r.json();
       if(!r.ok)throw new Error(data.error||'Could not approve appointment');
       closeModal();await renderAdmin();
-      alert(data.already_exists?'Appointment is confirmed and already exists on Google Calendar.':'Appointment approved and added to Google Calendar.');
+      alert(data.already_exists?'Appointment is confirmed and already exists on Google Calendar.':'Appointment approved, added to Google Calendar, and confirmation email sent.');
       return;
     }catch(e){
-      alert('Could not approve: '+e.message+'\n\nMake sure Google Calendar is connected first.');
+      alert('Could not approve: '+e.message+'\n\nMake sure Google Calendar and email are connected first.');
       return;
     }
+  }
+  if(status==='declined'){
+    try{
+      const token=await ownerAccessToken();
+      const r=await fetch('/.netlify/functions/email-status',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({appointment_id:id,action:'decline'})});
+      const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not decline request');
+      alert('Request declined. The client was emailed.');
+      closeModal();await renderAdmin();return;
+    }catch(e){return alert('Could not decline: '+e.message)}
   }
   const {error}=await sb.from('appointment_requests').update({status}).eq('id',id);
   if(error)return alert(error.message);closeModal();await renderAdmin()
 }
-async function propose(id){const date=prompt('New date (YYYY-MM-DD):');if(!date)return;const time=prompt('New time (example 1:30 PM):');if(!time)return;const {error}=await sb.from('appointment_requests').update({status:'alternative_proposed',proposed_date:date,proposed_time:time}).eq('id',id);if(error)return alert(error.message);closeModal();await renderAdmin()}
+async function propose(id){
+  const date=prompt('New date (YYYY-MM-DD):');if(!date)return;
+  const time=prompt('New time (example 1:30 PM):');if(!time)return;
+  try{
+    const token=await ownerAccessToken();
+    const r=await fetch('/.netlify/functions/email-status',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({appointment_id:id,action:'propose',proposed_date:date,proposed_time:time})});
+    const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not propose new time');
+    alert('New time proposed. The client was emailed.');
+    closeModal();await renderAdmin();
+  }catch(e){alert('Could not propose new time: '+e.message)}
+}
 async function openReq(id){const x=adminRows.find(a=>a.id===id);if(!x)return;$('modal').innerHTML=`<h2>${esc(x.first_name)} ${esc(x.last_name)}</h2><div class="details"><div class="detail"><small>Phone</small><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a></div><div class="detail"><small>Email</small><a href="mailto:${esc(x.email)}">${esc(x.email)}</a></div><div class="detail"><small>Address</small>${esc(x.address)}, ${esc(x.city)}, ${esc(x.state)} ${esc(x.zip)}</div><div class="detail"><small>Requested</small>${esc(x.requested_date)} · ${esc(x.requested_time)}</div><div class="detail"><small>Service</small>${esc(x.service_type||'')}</div><div class="detail"><small>Room / Area</small>${esc(x.room_type||'')} · ${esc(x.number_of_rooms||1)} area(s)</div><div class="detail"><small>Existing wallpaper</small>${esc(x.existing_wallpaper||'')}</div><div class="detail"><small>New wallpaper status</small>${esc(x.wallpaper_status||'')}</div><div class="detail"><small>Manufacturer / pattern</small>${esc(x.manufacturer||'—')}</div><div class="detail"><small>Quantity</small>${esc(x.quantity||'—')}</div></div><div class="notice" style="margin-top:12px"><b>Project notes</b><br>${esc(x.project_notes||'No additional notes.')}</div><div id="ownerPhotos"></div><div class="actions" style="margin-top:16px">${x.status!=='confirmed'?`<button class="btn sage small" onclick="setStatus(${x.id},'confirmed')">Approve</button>`:''}<button class="btn light small" onclick="propose(${x.id})">Propose New Time</button><button class="btn light small" onclick="setStatus(${x.id},'declined')">Decline</button><button class="btn dark small" onclick="closeModal()">Close</button></div>`;$('modalBg').classList.add('open');await loadOwnerPhotos(x.photo_urls||[])}
 async function loadOwnerPhotos(paths){if(!paths.length)return;const box=$('ownerPhotos');box.innerHTML='<div style="margin-top:14px;color:var(--muted)">Loading project photos…</div>';const urls=[];for(const p of paths){const {data,error}=await sb.storage.from('appointment-photos').createSignedUrl(p,3600);if(!error&&data?.signedUrl)urls.push(data.signedUrl)}box.innerHTML=urls.length?`<div class="photo-strip">${urls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Client project photo"></a>`).join('')}</div>`:'<div style="margin-top:14px;color:var(--muted)">No viewable photos.</div>'}
 function closeModal(){$('modalBg').classList.remove('open')}
