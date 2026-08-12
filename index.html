@@ -166,8 +166,8 @@ let service='', selectedDate='', selectedTime='', selectedFiles=[];
 let availabilitySettings={id:1,weekdays:[1,2,3,4,5],start_time:'09:00',end_time:'16:30',slot_minutes:90,booking_window_days:30,min_notice_hours:24};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const statusLabel=s=>({pending:'Pending Approval',confirmed:'Confirmed',declined:'Declined',alternative_proposed:'Alternative Proposed',cancelled:'Cancelled',completed:'Completed'}[s]||s||'Pending Approval');
-const statusClass=s=>s==='pending'?'pending':s==='confirmed'?'confirmed':s==='declined'?'declined':'proposed';
+const statusLabel=s=>({pending:'Pending Approval',confirmed:'Confirmed',declined:'Declined',alternative_proposed:'Alternative Proposed',proposal_declined:'Proposed Time Declined',cancelled:'Cancelled',completed:'Completed'}[s]||s||'Pending Approval');
+const statusClass=s=>s==='pending'?'pending':s==='confirmed'?'confirmed':s==='declined'||s==='proposal_declined'?'declined':'proposed';
 function step(n){document.querySelectorAll('.form-step').forEach(x=>x.classList.toggle('active',+x.dataset.step===n));document.querySelectorAll('.progress').forEach((x,i)=>x.classList.toggle('active',i===n-1));location.hash='schedule';}
 document.querySelectorAll('.opt').forEach(x=>x.onclick=()=>{document.querySelectorAll('.opt').forEach(y=>y.classList.remove('selected'));x.classList.add('selected');service=x.dataset.service});
 $('to2').onclick=()=>service?step(2):alert('Please choose a service.');

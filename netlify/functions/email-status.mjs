@@ -1,5 +1,5 @@
 
-import { json, preflight, verifyOwner, supabaseSelectAppointment, supabasePatchAppointment } from './_shared.mjs';
+import { json, preflight, verifyOwner, supabaseSelectAppointment, supabasePatchAppointment, signState } from './_shared.mjs';
 import { sendMail, clientProposedEmail, clientDeclinedEmail } from './_email.mjs';
 
 export default async (req)=>{
@@ -11,7 +11,8 @@ export default async (req)=>{
     if(action==='propose'){
       if(!proposed_date||!proposed_time)throw new Error('New date and time are required');
       await supabasePatchAppointment(a.id,{status:'alternative_proposed',proposed_date,proposed_time},auth);
-      await sendMail(clientProposedEmail(a,proposed_date,proposed_time));
+      const token=signState({purpose:'proposal-response',appointment_id:a.id,proposed_date,proposed_time,exp:Date.now()+14*24*60*60*1000});
+      await sendMail(clientProposedEmail(a,proposed_date,proposed_time,token));
       return json({ok:true});
     }
     if(action==='decline'){

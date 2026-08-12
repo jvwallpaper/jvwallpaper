@@ -132,7 +132,11 @@ JV Wallpaper
     </div>`
   };
 }
-export function clientProposedEmail(a,date,time){
+export function clientProposedEmail(a,date,time,token){
+  const base=`${SITE_URL}/.netlify/functions/client-proposal-response`;
+  const accept=`${base}?action=accept&token=${encodeURIComponent(token)}`;
+  const decline=`${base}?action=decline&token=${encodeURIComponent(token)}`;
+  const different=`${base}?action=new_request&token=${encodeURIComponent(token)}`;
   return {
     to:a.email,
     subject:'JV Wallpaper — New Measurement Time Proposed',
@@ -142,7 +146,9 @@ We’re unable to make the original requested time, but JV Wallpaper can offer:
 
 ${date} at ${time}
 
-Please contact us to confirm whether the new time works for you.
+Accept new time: ${accept}
+Decline this time: ${decline}
+Request a different time: ${different}
 
 JV Wallpaper
 703-901-1064`,
@@ -151,9 +157,56 @@ JV Wallpaper
       <p>Hi ${esc(a.first_name)},</p>
       <p>We’re unable to make the original requested time, but we can offer:</p>
       <div style="padding:16px;background:#eef0f6;margin:18px 0"><b>${esc(date)} at ${esc(time)}</b></div>
-      <p>Please contact JV Wallpaper to confirm whether the new time works for you.</p>
+      <p>Please choose one of the options below:</p>
+      <p style="margin:22px 0">
+        <a href="${esc(accept)}" style="display:inline-block;background:#48644b;color:#fff;text-decoration:none;padding:12px 16px;margin:0 8px 8px 0;border-radius:3px">Accept New Time</a>
+        <a href="${esc(decline)}" style="display:inline-block;background:#fff;color:#7a3f39;text-decoration:none;padding:11px 16px;margin:0 8px 8px 0;border:1px solid #b99a95;border-radius:3px">Decline</a>
+        <a href="${esc(different)}" style="display:inline-block;background:#26231e;color:#fff;text-decoration:none;padding:12px 16px;margin:0 8px 8px 0;border-radius:3px">Request a Different Time</a>
+      </p>
+      <p style="font-size:13px;color:#777">Accepting the new time will automatically confirm the appointment and update JV Wallpaper’s calendar.</p>
       <p style="margin-top:28px">JV Wallpaper<br>703-901-1064</p>
     </div>`
+  };
+}
+
+export function ownerProposalResponseEmail(a,action,date,time){
+  const client=`${a.first_name||''} ${a.last_name||''}`.trim();
+  const labels={accept:'accepted the new time',decline:'declined the proposed time',new_request:'chose to request a different time'};
+  const label=labels[action]||'responded to the proposed time';
+  return {
+    to:OWNER_EMAIL,
+    replyTo:a.email,
+    subject:`Measurement Update — ${client}`,
+    text:`${client} ${label}.
+
+Proposed time: ${date} at ${time}
+Phone: ${a.phone||''}
+Email: ${a.email||''}
+
+Owner dashboard: ${SITE_URL}/#admin`,
+    html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#222">
+      <h2>Measurement Appointment Update</h2>
+      <p><b>${esc(client)}</b> ${esc(label)}.</p>
+      <div style="padding:16px;background:#f5f3ee;margin:18px 0"><b>${esc(date)} at ${esc(time)}</b></div>
+      <p>${esc(a.phone||'')}<br>${esc(a.email||'')}</p>
+      <p style="margin-top:22px"><a href="${SITE_URL}/#admin" style="display:inline-block;background:#26231e;color:#fff;text-decoration:none;padding:12px 18px">Open Owner Dashboard</a></p>
+    </div>`
+  };
+}
+
+export function clientProposalDeclinedAckEmail(a){
+  return {
+    to:a.email,
+    subject:'JV Wallpaper — We Received Your Response',
+    text:`Hi ${a.first_name||''},
+
+Thanks for letting us know the proposed measurement time does not work. JV Wallpaper has been notified.
+
+You can submit another measurement request here: ${SITE_URL}/#schedule
+
+JV Wallpaper
+703-901-1064`,
+    html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#222"><h2>Thanks for letting us know</h2><p>Hi ${esc(a.first_name)},</p><p>We received your response that the proposed measurement time does not work. JV Wallpaper has been notified.</p><p><a href="${SITE_URL}/#schedule" style="display:inline-block;background:#26231e;color:#fff;text-decoration:none;padding:12px 16px">Request a Different Time</a></p><p style="margin-top:28px">JV Wallpaper<br>703-901-1064</p></div>`
   };
 }
 export function clientDeclinedEmail(a){
