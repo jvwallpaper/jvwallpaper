@@ -380,4 +380,18 @@ document.getElementById('instagramLink')?.addEventListener('click',function(e){i
 showAdmin();
 
 </script>
+
+<script>
+(()=>{
+  const params=new URLSearchParams(location.search);
+  const shouldOpenSchedule=location.hash==='#schedule'||params.get('reschedule')==='1';
+  if(!shouldOpenSchedule) return;
+  const openSchedule=()=>{
+    const section=document.getElementById('schedule');
+    if(section) section.scrollIntoView({block:'start'});
+  };
+  window.addEventListener('load',()=>setTimeout(openSchedule,120));
+  setTimeout(openSchedule,250);
+})();
+</script>
 </body></html>

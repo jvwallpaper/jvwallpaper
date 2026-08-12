@@ -87,11 +87,11 @@ export default async (req)=>{
     try{await sendMail(ownerProposalResponseEmail(a,action,date,time));}catch(e){console.error('owner response email',e)}
 
     if(action==='new_request'){
-      return Response.redirect(`${SITE_URL}/#schedule`,302);
+      return Response.redirect(`${SITE_URL}/?reschedule=1#schedule`,302);
     }
 
     try{await sendMail(clientProposalDeclinedAckEmail(a));}catch(e){console.error('client decline ack email',e)}
-    return page('Thanks for letting us know','JV Wallpaper has been notified that the proposed time does not work. You can request another time whenever you’re ready.','Request a Different Time',`${SITE_URL}/#schedule`);
+    return page('Thanks for letting us know','JV Wallpaper has been notified that the proposed time does not work. You can request another time whenever you’re ready.','Request a Different Time',`${SITE_URL}/?reschedule=1#schedule`);
   }catch(e){
     console.error(e);
     return page('We could not process this response','The response link may have expired or the appointment may already have been updated. Please contact JV Wallpaper at 703-901-1064.');

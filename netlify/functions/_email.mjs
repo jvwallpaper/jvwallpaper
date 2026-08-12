@@ -202,11 +202,11 @@ export function clientProposalDeclinedAckEmail(a){
 
 Thanks for letting us know the proposed measurement time does not work. JV Wallpaper has been notified.
 
-You can submit another measurement request here: ${SITE_URL}/#schedule
+You can submit another measurement request here: ${SITE_URL}/?reschedule=1#schedule
 
 JV Wallpaper
 703-901-1064`,
-    html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#222"><h2>Thanks for letting us know</h2><p>Hi ${esc(a.first_name)},</p><p>We received your response that the proposed measurement time does not work. JV Wallpaper has been notified.</p><p><a href="${SITE_URL}/#schedule" style="display:inline-block;background:#26231e;color:#fff;text-decoration:none;padding:12px 16px">Request a Different Time</a></p><p style="margin-top:28px">JV Wallpaper<br>703-901-1064</p></div>`
+    html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#222"><h2>Thanks for letting us know</h2><p>Hi ${esc(a.first_name)},</p><p>We received your response that the proposed measurement time does not work. JV Wallpaper has been notified.</p><p><a href="${SITE_URL}/?reschedule=1#schedule" style="display:inline-block;background:#26231e;color:#fff;text-decoration:none;padding:12px 16px">Request a Different Time</a></p><p style="margin-top:28px">JV Wallpaper<br>703-901-1064</p></div>`
   };
 }
 export function clientDeclinedEmail(a){
