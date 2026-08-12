@@ -55,12 +55,23 @@ export default async (req)=>{
     const url=new URL(req.url);
     const action=url.searchParams.get('action');
     const token=url.searchParams.get('token');
-    if(!['accept','decline','new_request'].includes(action)) throw new Error('Invalid response');
+    if(!['accept','decline','new_request','details'].includes(action)) throw new Error('Invalid response');
     const state=verifyState(token);
     if(state.purpose!=='proposal-response') throw new Error('Invalid response link');
     const a=await getAppointment(state.appointment_id);
     const date=state.proposed_date;
     const time=state.proposed_time;
+
+    if(action==='details') {
+      return new Response(JSON.stringify({
+        first_name:a.first_name||'', last_name:a.last_name||'', email:a.email||'', phone:a.phone||'',
+        address:a.address||'', city:a.city||'', state:a.state||'VA', zip:a.zip||'',
+        service_type:a.service_type||'Wallpaper Installation', room_type:a.room_type||'Powder Room',
+        number_of_rooms:a.number_of_rooms||1, existing_wallpaper:a.existing_wallpaper||'No',
+        wallpaper_status:a.wallpaper_status||'Yes', manufacturer:a.manufacturer||'', quantity:a.quantity||'',
+        project_notes:a.project_notes||''
+      }),{status:200,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
+    }
 
     // Links are tied to the exact proposal so an old email cannot change a newer proposal.
     if(a.proposed_date!==date || a.proposed_time!==time){
@@ -87,11 +98,11 @@ export default async (req)=>{
     try{await sendMail(ownerProposalResponseEmail(a,action,date,time));}catch(e){console.error('owner response email',e)}
 
     if(action==='new_request'){
-      return Response.redirect(`${SITE_URL}/?reschedule=1#schedule`,302);
+      return Response.redirect(`${SITE_URL}/?reschedule=1&proposal_token=${encodeURIComponent(token)}#schedule`,302);
     }
 
     try{await sendMail(clientProposalDeclinedAckEmail(a));}catch(e){console.error('client decline ack email',e)}
-    return page('Thanks for letting us know','JV Wallpaper has been notified that the proposed time does not work. You can request another time whenever you’re ready.','Request a Different Time',`${SITE_URL}/?reschedule=1#schedule`);
+    return page('Thanks for letting us know','JV Wallpaper has been notified that the proposed time does not work. You can choose another date and time whenever you’re ready.','Choose Another Date & Time',`${SITE_URL}/.netlify/functions/client-proposal-response?action=new_request&token=${encodeURIComponent(token)}`);
   }catch(e){
     console.error(e);
     return page('We could not process this response','The response link may have expired or the appointment may already have been updated. Please contact JV Wallpaper at 703-901-1064.');

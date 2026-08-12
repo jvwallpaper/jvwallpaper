@@ -382,10 +382,32 @@ showAdmin();
 </script>
 
 <script>
-(()=>{
+(async()=>{
   const params=new URLSearchParams(location.search);
-  const shouldOpenSchedule=location.hash==='#schedule'||params.get('reschedule')==='1';
+  const isReschedule=params.get('reschedule')==='1';
+  const shouldOpenSchedule=location.hash==='#schedule'||isReschedule;
   if(!shouldOpenSchedule) return;
+
+  if(isReschedule){
+    const token=params.get('proposal_token');
+    if(token){
+      try{
+        const r=await fetch('/.netlify/functions/client-proposal-response?action=details&token='+encodeURIComponent(token),{cache:'no-store'});
+        const d=await r.json();
+        if(r.ok){
+          const put=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=String(v)};
+          put('first',d.first_name); put('last',d.last_name); put('email',d.email); put('phone',d.phone);
+          put('address',d.address); put('city',d.city); put('state',d.state); put('zip',d.zip);
+          put('room',d.room_type); put('rooms',d.number_of_rooms); put('existing',d.existing_wallpaper);
+          put('wallpaperStatus',d.wallpaper_status); put('manufacturer',d.manufacturer); put('quantity',d.quantity); put('notes',d.project_notes);
+          service=d.service_type||'Wallpaper Installation';
+          document.querySelectorAll('.opt').forEach(x=>x.classList.toggle('selected',x.dataset.service===service));
+        }
+      }catch(e){console.warn('Could not prefill reschedule request',e)}
+    }
+    try{await loadAvailabilitySettings();renderDates();step(4);}catch(e){console.warn('Could not open dates',e)}
+  }
+
   const openSchedule=()=>{
     const section=document.getElementById('schedule');
     if(section) section.scrollIntoView({block:'start'});
